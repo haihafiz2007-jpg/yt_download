@@ -1,6 +1,15 @@
 downloads/
+.venv/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .DS_Store
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore

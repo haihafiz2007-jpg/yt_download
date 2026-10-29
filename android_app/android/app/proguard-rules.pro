@@ -1,0 +1,4 @@
+-keepattributes SourceFile
+-keep class com.yausername.** { *; }
+-keep class kotlin.sequences.** { *; }
+-keep class org.apache.commons.compress.archivers.zip.** { *; }
