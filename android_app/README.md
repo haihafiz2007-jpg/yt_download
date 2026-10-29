@@ -23,4 +23,4 @@ The app uses yt-dlp and bundled FFmpeg to download, merge, and convert media.
 
 ## Third-party license
 
-The Android app bundles `youtubedl-android` and its FFmpeg module, which are licensed under GPL-3.0: https://github.com/yausername/youtubedl-android. Distribution of the combined APK and its corresponding source must comply with GPL-3.0. The existing desktop application remains under the root MIT license.
+The Android app bundles `youtubedl-android` and its FFmpeg module, which are licensed under GPL-3.0: https://github.com/yausername/youtubedl-android. Distribution of the combined APK and its corresponding source must comply with GPL-3.0. The project's own code is subject to the root `LICENSE` notice for versions released after it was added. Earlier versions remain subject to the MIT license that accompanied them.

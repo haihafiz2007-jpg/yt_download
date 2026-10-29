@@ -67,4 +67,8 @@ The APK is written to `android_app/build/app/outputs/flutter-apk/app-release.apk
 
 ## License
 
-This project is licensed under the MIT License.
+The project's original code is all rights reserved for versions released
+after this notice was added. This does not revoke MIT permissions granted for
+earlier versions in the repository's history. Third-party components remain
+subject to their own licenses; see [the Android app notes](android_app/README.md)
+for the Android download library's GPL-3.0 requirements.
