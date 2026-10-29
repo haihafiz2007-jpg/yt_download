@@ -3,6 +3,7 @@ package com.example.yt_downloader
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -81,10 +82,20 @@ class DownloadForegroundService : Service() {
 			@Suppress("DEPRECATION")
 			Notification.Builder(this)
 		}
+		val openAppIntent = Intent(this, MainActivity::class.java).apply {
+			flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+		}
+		val openAppPendingIntent = PendingIntent.getActivity(
+			this,
+			OPEN_APP_REQUEST_CODE,
+			openAppIntent,
+			PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+		)
 		return builder
 			.setSmallIcon(android.R.drawable.stat_sys_download)
-			.setContentTitle("XDZ Download")
+			.setContentTitle("xdz_360 yt")
 			.setContentText(status)
+			.setContentIntent(openAppPendingIntent)
 			.setOnlyAlertOnce(true)
 			.setOngoing(ongoing)
 			.setAutoCancel(!ongoing)
@@ -104,6 +115,7 @@ class DownloadForegroundService : Service() {
 		private const val ACTION_FINISH = "com.example.yt_downloader.FINISH_DOWNLOAD"
 		private const val EXTRA_STATUS = "status"
 		private const val EXTRA_PROGRESS = "progress"
+		private const val OPEN_APP_REQUEST_CODE = 1002
 
 		fun start(context: Context) {
 			val intent = Intent(context, DownloadForegroundService::class.java).apply {

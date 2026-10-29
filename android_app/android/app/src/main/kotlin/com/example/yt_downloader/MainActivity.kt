@@ -400,62 +400,86 @@ class MainActivity : FlutterActivity() {
 				}
 				downloadDirectory.listFiles()?.forEach { it.delete() }
 
-				val request = YoutubeDLRequest(url)
-					.addOption("--no-mtime")
-					.addOption("-o", File(downloadDirectory, "%(title)s.%(ext)s").absolutePath)
+				fun createRequest(includeSubtitles: Boolean): YoutubeDLRequest {
+					val request = YoutubeDLRequest(url)
+						.addOption("--no-mtime")
+						.addOption("-o", File(downloadDirectory, "%(title)s.%(ext)s").absolutePath)
 
-				if (playlist) {
-					request.addOption("--yes-playlist")
-				} else {
-					request.addOption("--no-playlist")
-				}
-				if (subtitles) {
-					// yt-dlp can save regular or auto-generated captions when the site offers them.
-					request.addOption("--write-subs")
-						.addOption("--write-auto-subs")
-						.addOption("--sub-langs", subtitleLanguage ?: "en")
+					if (playlist) {
+						request.addOption("--yes-playlist")
+					} else {
+						request.addOption("--no-playlist")
+					}
+					if (includeSubtitles) {
+						// Captions are optional; retry without them if their server rate-limits us.
+						request.addOption("--write-subs")
+							.addOption("--write-auto-subs")
+							.addOption("--sub-langs", subtitleLanguage ?: "en")
+					}
+
+					if (fileType == "mp3" || fileType == "m4a") {
+						request.addOption("-x")
+							.addOption("--audio-format", fileType)
+						if (fileType == "mp3") request.addOption("--audio-quality", "0")
+					} else if (fileType == "original") {
+						request.addOption("-f", "bestvideo+bestaudio/best")
+					} else {
+						val maxHeight = when (quality) {
+							"1080p" -> 1080
+							"720p" -> 720
+							"480p" -> 480
+							"360p" -> 360
+							else -> null
+						}
+						val heightFilter = maxHeight?.let { "[height<=$it]" } ?: ""
+						request.addOption(
+							"-f",
+							"bestvideo$heightFilter+bestaudio/best$heightFilter/best",
+						).addOption("--merge-output-format", "mp4")
+					}
+					return request
 				}
 
-				if (fileType == "mp3" || fileType == "m4a") {
-					request.addOption("-x")
-						.addOption("--audio-format", fileType)
-					if (fileType == "mp3") request.addOption("--audio-quality", "0")
-				} else if (fileType == "original") {
-					request.addOption("-f", "bestvideo+bestaudio/best")
-				} else {
-					val maxHeight = when (quality) {
-						"1080p" -> 1080
-						"720p" -> 720
-						"480p" -> 480
-						"360p" -> 360
-						else -> null
+				fun executeRequest(request: YoutubeDLRequest) {
+					var lastNotificationProgress = -1
+					// Keep Flutter progress and the ongoing Android notification in sync.
+					YoutubeDL.getInstance().execute(request, processId) { progress, eta, line ->
+						val speed = SPEED_PATTERN.find(line)
+							?.groupValues
+							?.getOrNull(1)
+							?.replace(Regex("\\s+"), "")
+						val percent = progress.toInt().coerceIn(0, 100)
+						if (percent != lastNotificationProgress) {
+							lastNotificationProgress = percent
+							DownloadForegroundService.update(this, "Downloading", percent)
+						}
+						runOnUiThread {
+							channel.invokeMethod(
+								"progress",
+								mapOf("progress" to progress, "eta" to eta, "speed" to speed),
+							)
+						}
 					}
-					val heightFilter = maxHeight?.let { "[height<=$it]" } ?: ""
-					request.addOption(
-						"-f",
-						"bestvideo$heightFilter+bestaudio/best$heightFilter/best",
-					).addOption("--merge-output-format", "mp4")
 				}
 
-				var lastNotificationProgress = -1
-				// This callback is the source of the Flutter progress display and
-				// the persistent Android notification's percentage.
-				YoutubeDL.getInstance().execute(request, processId) { progress, eta, line ->
-					val speed = SPEED_PATTERN.find(line)
-						?.groupValues
-						?.getOrNull(1)
-						?.replace(Regex("\\s+"), "")
-					val percent = progress.toInt().coerceIn(0, 100)
-					if (percent != lastNotificationProgress) {
-						lastNotificationProgress = percent
-						DownloadForegroundService.update(this, "Downloading", percent)
+				var warning: String? = null
+				try {
+					executeRequest(createRequest(subtitles))
+				} catch (downloadError: Exception) {
+					val message = downloadError.message.orEmpty()
+					val subtitleRateLimited = subtitles &&
+						SUBTITLE_RATE_LIMIT_PATTERN.containsMatchIn(message)
+					if (!subtitleRateLimited) throw downloadError
+
+					warning = "Video downloaded without subtitles because the site rate-limited captions."
+					runOnUiThread { channel.invokeMethod("status", warning) }
+					DownloadForegroundService.update(this, "Retrying without subtitles")
+					downloadDirectory.listFiles()?.forEach { file ->
+						if (!file.delete()) {
+							throw IllegalStateException("Could not clear the partial download before retrying.")
+						}
 					}
-					runOnUiThread {
-						channel.invokeMethod(
-							"progress",
-							mapOf("progress" to progress, "eta" to eta, "speed" to speed),
-						)
-					}
+					executeRequest(createRequest(includeSubtitles = false))
 				}
 				val downloadedFiles = downloadDirectory.listFiles()
 					?.filter {
@@ -480,7 +504,11 @@ class MainActivity : FlutterActivity() {
 						"sizeBytes" to file.length(),
 					)
 				}
-				finalStatus = "Download complete"
+				finalStatus = if (warning == null) {
+					"Download complete"
+				} else {
+					"Download complete; subtitles unavailable"
+				}
 				succeeded = true
 				runOnUiThread {
 					result.success(
@@ -488,6 +516,7 @@ class MainActivity : FlutterActivity() {
 							"location" to savedFiles.first()["location"],
 							"sizeBytes" to savedFiles.first()["sizeBytes"],
 							"files" to savedFiles,
+							"warning" to warning,
 						),
 					)
 				}
@@ -587,5 +616,7 @@ class MainActivity : FlutterActivity() {
 		private val SUBTITLE_LANGUAGES = Regex("[A-Za-z0-9,*._-]{1,80}")
 		private val SPEED_PATTERN =
 			Regex("""(?:at\s+)?([0-9]+(?:\.[0-9]+)?\s*[KMGT]?i?B/s)""", RegexOption.IGNORE_CASE)
+		private val SUBTITLE_RATE_LIMIT_PATTERN =
+			Regex("""(?is)(?:subtitle|subtitles).*(?:429|too many requests)""")
 	}
 }

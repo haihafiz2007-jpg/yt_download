@@ -62,7 +62,7 @@ class _DownloaderAppState extends State<DownloaderApp> {
     const leaf = Color(0xFFBCE96B);
 
     return MaterialApp(
-      title: 'XDZ Download',
+      title: 'xdz_360 yt',
       themeMode: _themeMode,
       theme: ThemeData(
         useMaterial3: true,
@@ -476,6 +476,7 @@ class _DownloaderPageState extends State<DownloaderPage> {
       String status;
       String? location;
       String? errorMessage;
+      String? downloadWarning;
       Map<String, Object?>? downloadDetails;
       try {
         // This map is the Flutter-to-Android download request. Its keys must
@@ -491,6 +492,7 @@ class _DownloaderPageState extends State<DownloaderPage> {
             });
         downloadDetails = downloadResult;
         location = downloadResult?['location'] as String?;
+        downloadWarning = downloadResult?['warning'] as String?;
         if (location == null) {
           throw PlatformException(
             code: 'missing_location',
@@ -513,7 +515,7 @@ class _DownloaderPageState extends State<DownloaderPage> {
         'fileType': job['fileType'],
         'location': location ?? '',
         'status': status,
-        'message': errorMessage ?? '',
+        'message': errorMessage ?? downloadWarning ?? '',
         'timestamp': DateTime.now().millisecondsSinceEpoch,
         if (downloadDetails?['sizeBytes'] is num)
           'sizeBytes': downloadDetails!['sizeBytes'],
@@ -556,6 +558,7 @@ class _DownloaderPageState extends State<DownloaderPage> {
         _etaSeconds = null;
         _status =
             errorMessage ??
+            downloadWarning ??
             (status == 'Complete' ? 'Download complete' : 'Download $status.');
         _isDownloading = false;
         _activeJobId = null;
@@ -629,15 +632,19 @@ class _DownloaderPageState extends State<DownloaderPage> {
     // _buildQueueSection and _buildHistorySection handle their own lists.
     return Scaffold(
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           children: [
-            CircleAvatar(
-              radius: 17,
-              backgroundColor: Color(0xFFBCE96B),
-              child: Text('🤪', style: TextStyle(fontSize: 19)),
+            ClipRRect(
+              borderRadius: BorderRadius.all(Radius.circular(9)),
+              child: Image.asset(
+                'assets/xdz_360_yt_icon.png',
+                width: 36,
+                height: 36,
+                fit: BoxFit.cover,
+              ),
             ),
-            SizedBox(width: 10),
-            Text('XDZ Download'),
+            const SizedBox(width: 10),
+            const Text('xdz_360 yt'),
           ],
         ),
       ),
@@ -667,10 +674,14 @@ class _DownloaderPageState extends State<DownloaderPage> {
                 ),
                 child: Row(
                   children: [
-                    const CircleAvatar(
-                      radius: 28,
-                      backgroundColor: Color(0xFFBCE96B),
-                      child: Text('🤪', style: TextStyle(fontSize: 28)),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: Image.asset(
+                        'assets/xdz_360_yt_icon.png',
+                        width: 68,
+                        height: 68,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -754,7 +765,7 @@ class _DownloaderPageState extends State<DownloaderPage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Open it in TeraBox to access or download the file. XDZ Download cannot extract TeraBox share links.',
+                        'Open it in TeraBox to access or download the file. xdz_360 yt cannot extract TeraBox share links.',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       const SizedBox(height: 10),
@@ -1017,7 +1028,12 @@ class _DownloaderPageState extends State<DownloaderPage> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                subtitle: Text('${job['fileType']} · ${job['status']}'),
+                subtitle: Text(
+                  '${job['fileType']} · ${job['status']}'
+                  '${job['error'] is String && (job['error'] as String).isNotEmpty ? '\n${job['error']}' : ''}',
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 trailing: PopupMenuButton<String>(
                   enabled: !active,
                   onSelected: (action) {
@@ -1114,6 +1130,7 @@ class _DownloaderPageState extends State<DownloaderPage> {
             final url = entry['url'] as String? ?? '';
             final timestamp = entry['timestamp'] as num?;
             final sizeBytes = entry['sizeBytes'] as num?;
+            final message = entry['message'] as String? ?? '';
             final date = timestamp == null
                 ? ''
                 : DateTime.fromMillisecondsSinceEpoch(
@@ -1136,8 +1153,9 @@ class _DownloaderPageState extends State<DownloaderPage> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 subtitle: Text(
-                  '${entry['fileType'] ?? ''} · ${entry['status'] ?? 'Unknown'}${sizeBytes == null ? '' : ' · ${_formatBytes(sizeBytes.toInt())}'}${date.isEmpty ? '' : ' · $date'}',
-                  maxLines: 2,
+                  '${entry['fileType'] ?? ''} · ${entry['status'] ?? 'Unknown'}${sizeBytes == null ? '' : ' · ${_formatBytes(sizeBytes.toInt())}'}${date.isEmpty ? '' : ' · $date'}${message.isEmpty ? '' : '\n$message'}',
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 trailing: location.isEmpty
                     ? null

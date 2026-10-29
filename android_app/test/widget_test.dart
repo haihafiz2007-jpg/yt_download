@@ -63,7 +63,7 @@ void main() {
   testWidgets('shows downloader options', (WidgetTester tester) async {
     await tester.pumpWidget(const DownloaderApp());
 
-    expect(find.text('XDZ Download'), findsOneWidget);
+    expect(find.text('xdz_360 yt'), findsOneWidget);
     expect(find.text('Links (one per line)'), findsOneWidget);
     expect(find.text('MP4 video'), findsOneWidget);
     await tester.tap(find.text('MP4 video'));
@@ -113,5 +113,57 @@ void main() {
     expect(find.text('Download complete'), findsOneWidget);
     expect(find.text('www.youtube.com'), findsOneWidget);
     expect(find.text('test.mp4'), findsOneWidget);
+  });
+
+  testWidgets('shows the downloader error for a failed link', (
+    WidgetTester tester,
+  ) async {
+    const errorMessage = 'This video is unavailable';
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(_channel, (call) async {
+          switch (call.method) {
+            case 'getHistory':
+            case 'getQueue':
+              return <Object?>[];
+            case 'consumeSharedText':
+              return null;
+            case 'getWifiOnly':
+            case 'getDarkMode':
+              return false;
+            case 'getStorageInfo':
+              return <String, Object?>{
+                'availableBytes': 4 * 1024 * 1024 * 1024,
+                'totalBytes': 32 * 1024 * 1024 * 1024,
+              };
+            case 'requestStoragePermission':
+              return true;
+            case 'download':
+              throw PlatformException(
+                code: 'download_failed',
+                message: errorMessage,
+              );
+            case 'recordHistory':
+            case 'saveQueue':
+              return null;
+            default:
+              return null;
+          }
+        });
+
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(const DownloaderApp());
+    await tester.enterText(
+      find.byType(TextField).first,
+      'https://www.youtube.com/watch?v=example',
+    );
+    await tester.ensureVisible(find.text('Add to queue'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add to queue'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining(errorMessage), findsWidgets);
   });
 }
