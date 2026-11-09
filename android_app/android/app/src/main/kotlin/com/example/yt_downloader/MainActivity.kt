@@ -432,9 +432,13 @@ class MainActivity : FlutterActivity() {
 							else -> null
 						}
 						val heightFilter = maxHeight?.let { "[height<=$it]" } ?: ""
+						val format =
+							"bestvideo$heightFilter[vcodec^=avc1]+bestaudio[acodec^=mp4a]/" +
+								"best$heightFilter[vcodec^=avc1][acodec^=mp4a]/" +
+								"bestvideo$heightFilter+bestaudio/best$heightFilter/best"
 						request.addOption(
 							"-f",
-							"bestvideo$heightFilter+bestaudio/best$heightFilter/best",
+							format,
 						).addOption("--merge-output-format", "mp4")
 					}
 					return request
